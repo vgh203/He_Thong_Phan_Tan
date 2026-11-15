@@ -1,0 +1,11 @@
+# Chỉ theo dõi folder Lab/
+*
+!Lab/
+!Lab/**
+!.gitignore
+
+# Bỏ qua bytecode và data runtime
+**/__pycache__/**
+*.pyc
+Lab5/data/**
+Lab/Lab5/data/**
