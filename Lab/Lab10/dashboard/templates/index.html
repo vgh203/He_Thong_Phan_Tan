@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Group Multicast & ABAC Policy Simulator | Lab 10</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo-area">
+                <span class="badge-tag">LECTURE 10</span>
+                <h1>Secure Group Multicast & ABAC Policy Simulator</h1>
+            </div>
+            <div class="quick-stats">
+                <div class="stat-pill"><span class="stat-label">Tree:</span> N=8, d=2, h=3</div>
+                <div class="stat-pill"><span class="stat-label">Encryption:</span> AES-256-GCM</div>
+                <div class="stat-pill"><span class="stat-label">Current Root Key K₀:</span> <code id="nav-root-key">...</code></div>
+                <button class="btn btn-outline" onclick="resetSimulation()">Reset Simulator</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Top Row: Tree Diagram & Member Details -->
+        <section class="card tree-section">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="icon">🌲</span>
+                    <h2>LKH Binary Key Tree (Logical Key Hierarchy)</h2>
+                </div>
+                <div class="legend">
+                    <span class="legend-item"><span class="dot root-dot"></span> Root K₀ (Node 1)</span>
+                    <span class="legend-item"><span class="dot kek-dot"></span> Intermediate KEKs</span>
+                    <span class="legend-item"><span class="dot active-dot"></span> Active Member</span>
+                    <span class="legend-item"><span class="dot revoked-dot"></span> Revoked / Inactive</span>
+                </div>
+            </div>
+            <div class="tree-container" id="tree-container">
+                <!-- SVG dynamically rendered here -->
+                <svg id="tree-svg" width="100%" height="340"></svg>
+            </div>
+        </section>
+
+        <!-- Middle Grid: Dynamic Operations, ABAC Dispatcher, and Verification Checklist -->
+        <div class="grid-3col">
+            <!-- Col 1: Dynamic Rekeying Controls -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🔄</span>
+                        <h2>Dynamic Group Rekeying</h2>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="section-desc">Test dynamic LKH rekeying logic guaranteeing Forward Secrecy and Backward Secrecy.</p>
+                    
+                    <div class="action-box">
+                        <div class="action-meta">
+                            <strong>1. Member JOIN (Forward Secrecy)</strong>
+                            <span class="badge badge-info">h = 3 Blocks</span>
+                        </div>
+                        <p class="action-hint">CLIENT_3 joins the group. Server updates K₅, K₂, and K₀, emitting 3 rekey blocks. Past messages remain protected.</p>
+                        <button class="btn btn-primary btn-block" onclick="joinClient('CLIENT_3')">
+                            Join CLIENT_3 into Group
+                        </button>
+                    </div>
+
+                    <div class="action-box">
+                        <div class="action-meta">
+                            <strong>2. Member LEAVE (Backward Secrecy)</strong>
+                            <span class="badge badge-warning">d*h = 6 Blocks</span>
+                        </div>
+                        <p class="action-hint">CLIENT_7 leaves the group. Server revokes leaf 14 and refreshes K₇, K₃, and K₀ with 6 child-encrypted blocks.</p>
+                        <button class="btn btn-danger btn-block" onclick="leaveClient('CLIENT_7')">
+                            Revoke CLIENT_7 (Leave Group)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col 2: ABAC Policy & Multicast Dispatch -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🛡️</span>
+                        <h2>ABAC Policy & Multicast</h2>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="section-desc"><strong>Rule:</strong> ALLOW IF Role == 'Publisher' AND Time ∈ [08:00, 18:00]</p>
+
+                    <form id="publish-form" onsubmit="dispatchMulticast(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Client Subject:</label>
+                                <select id="pub-client" onchange="autoFillRole()">
+                                    <option value="CLIENT_1">CLIENT_1 (Default Publisher)</option>
+                                    <option value="CLIENT_2">CLIENT_2 (Subscriber)</option>
+                                    <option value="CLIENT_3">CLIENT_3</option>
+                                    <option value="CLIENT_4">CLIENT_4</option>
+                                    <option value="CLIENT_5">CLIENT_5</option>
+                                    <option value="CLIENT_6">CLIENT_6</option>
+                                    <option value="CLIENT_7">CLIENT_7</option>
+                                    <option value="CLIENT_8">CLIENT_8</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Role Attribute:</label>
+                                <select id="pub-role">
+                                    <option value="Publisher">Publisher</option>
+                                    <option value="Subscriber">Subscriber</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Environment Time (HH:MM):</label>
+                            <div class="time-presets">
+                                <input type="text" id="pub-time" value="10:30">
+                                <button type="button" class="btn btn-sm" onclick="setTime('10:30')">10:30 (In-Hours)</button>
+                                <button type="button" class="btn btn-sm" onclick="setTime('21:00')">21:00 (Out-of-Hours)</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Multicast Payload:</label>
+                            <input type="text" id="pub-payload" value="Top Secret Defense Grid Coordinates">
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-block">
+                            Evaluate Policy & Dispatch Multicast
+                        </button>
+                    </form>
+
+                    <div id="abac-result-banner" class="result-banner hidden">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col 3: Verification Checklist (Slide 39) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">✅</span>
+                        <h2>Verification Checklist</h2>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="section-desc">Automated security checklist verifying Backward Secrecy, Forward Secrecy & ABAC rules.</p>
+
+                    <button class="btn btn-accent btn-block" onclick="runVerification()">
+                        Run Automated Verification Suite
+                    </button>
+
+                    <div id="verification-list" class="checklist-container">
+                        <div class="check-item pending">
+                            <span class="check-icon">⏳</span>
+                            <div class="check-text">
+                                <strong>1. Departing Member Isolation</strong>
+                                <span>CLIENT_7 cannot decrypt new messages</span>
+                            </div>
+                        </div>
+                        <div class="check-item pending">
+                            <span class="check-icon">⏳</span>
+                            <div class="check-text">
+                                <strong>2. New Member Past Isolation</strong>
+                                <span>CLIENT_3 cannot decrypt past messages</span>
+                            </div>
+                        </div>
+                        <div class="check-item pending">
+                            <span class="check-icon">⏳</span>
+                            <div class="check-text">
+                                <strong>3. ABAC Role Enforcement</strong>
+                                <span>Subscriber publication blocked</span>
+                            </div>
+                        </div>
+                        <div class="check-item pending">
+                            <span class="check-icon">⏳</span>
+                            <div class="check-text">
+                                <strong>4. ABAC Time Enforcement</strong>
+                                <span>Outside 08:00 - 18:00 publication blocked</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Decryption Matrix & Console Trace Log -->
+        <div class="grid-2col">
+            <!-- AES-256-GCM Inspection & Decryption Matrix -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🔐</span>
+                        <h2>AES-256-GCM Payload & Member Decryption Matrix</h2>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="crypto-details" class="crypto-meta">
+                        <div><strong>Cipher:</strong> <code>AES-256-GCM (AEAD)</code></div>
+                        <div><strong>IV (Nonce 12B):</strong> <code id="meta-nonce">None yet</code></div>
+                        <div><strong>Ciphertext + Tag:</strong> <code id="meta-ct">None yet</code></div>
+                    </div>
+                    <div class="matrix-grid" id="matrix-grid">
+                        <!-- Populated by JS for CLIENT_1..CLIENT_8 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Console Trace Log matching Slide 39 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">💻</span>
+                        <h2>Terminal Console Trace Log (Slide 39 Standard)</h2>
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="fetchState()">Refresh Logs</button>
+                </div>
+                <div class="card-body terminal-body">
+                    <pre class="terminal-screen" id="terminal-screen"></pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        Distributed Systems Lab 10: Secure Group Multicast & Attribute-Based Access Control Simulator
+    </footer>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
+
